@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+    <h2 class="mb-4"><i class="fas fa-cog"></i> Настройки</h2>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-key"></i> API Ключ</h5>
+                </div>
+                <div class="card-body">
+                    <label class="form-label">Ваш API-ключ для подключения сайта</label>
+                    <div class="api-key">
+                        <code>{{ user.api_key }}</code>
+                    </div>
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Внимание!</strong> API-ключ нельзя изменить или перегенерировать.
+                        Сохраните его в надежном месте. При утере ключа потребуется создать новый аккаунт.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-tachometer-alt"></i> Rate Limit</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <label class="form-label">Максимум запросов в минуту с одного IP</label>
+                        <div class="input-group">
+                            <input type="number" name="rate_limit" class="form-control"
+                                   value="{{ user.rate_limit }}" min="10" max="1000">
+                            <button type="submit" name="update_rate_limit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить
+                            </button>
+                        </div>
+                    </form>
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle"></i>
+                        При превышении лимита IP блокируется на 60 секунд
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-code"></i> Пример подключения</h5>
+                </div>
+                <div class="card-body">
+                    <p>Скопируйте этот код в ваш Python-проект (Flask):</p>
+
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button>
+                        <pre><code class="language-python">from flask import Flask, request, jsonify
+import requests
+
+app = Flask(__name__)
+
+WAF_URL = "(пока под вопросом)"
+API_KEY = "ваш_апи_ключ"
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def catch_all(path):
+    print(f"Запрос к WAF: {path}")
+
+    try:
+        response = requests.request(
+            method=request.method,
+            url=f"{WAF_URL}/{path}",
+            headers={"X-API-Key": API_KEY},
+            params=request.args,
+            data=request.get_data()
+        )
+        return response.content, response.status_code
+
+    except requests.exceptions.ConnectionError:
+        return "WAF сервис недоступен", 503
+
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=5001, debug=True)</code></pre>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle"></i>
+                        После запуска все запросы к вашему сайту будут проходить через WAF.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i>Удаление аккаунта</h5>
+                </div>
+                <div class="card-body">
+                    <p>Удаление аккаунта приведет к потере всей статистики и настроек. API-ключ станет недействительным.</p>
+                    <form method="POST" onsubmit="return confirm('Вы уверены? Это действие необратимо!')">
+                        <button type="submit" name="delete_account" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Удалить аккаунт
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.code-block {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    position: relative;
+}
+
+.code-block pre {
+    margin: 0;
+    overflow-x: auto;
+}
+
+.code-block code {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #d4d4d4;
+    line-height: 1.5;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.copy-btn:hover {
+    background: #45a049;
+}
+
+.api-key {
+    background: #f4f4f4;
+    padding: 10px;
+    border-radius: 5px;
+    word-break: break-all;
+}
+</style>
+
+<script>
+function copyCode(button) {
+    const codeBlock = button.parentElement.querySelector('code');
+    const text = codeBlock.innerText;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = button.innerText;
+        button.innerText = '✅ Скопировано!';
+        setTimeout(() => {
+            button.innerText = originalText;
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}
