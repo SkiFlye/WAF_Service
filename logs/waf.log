@@ -1,0 +1,25 @@
+2026-04-14 18:04:17 - INFO - Rule 1 disabled via web UI
+2026-04-14 18:04:18 - INFO - Rule 1 enabled via web UI
+2026-04-14 18:05:17 - INFO - PASS - IP: 127.0.0.1 | GET /get | Status: 200
+2026-04-14 18:05:17 - INFO - PASS - IP: 127.0.0.1 | GET /favicon.ico | Status: 404
+2026-04-14 18:06:18 - WARNING - BLOCKED - IP: 127.0.0.1 | Method: GET | URL: /get?q=<script>alert(1)</script> | Rules: XSS - Script tag(high)
+2026-04-14 18:07:00 - INFO - PASS - IP: 127.0.0.1 | GET /get?id=1' OR '1'='1 | Status: 200
+2026-04-14 18:07:26 - INFO - PASS - IP: 127.0.0.1 | GET /get?id=1' OR '1'='1 | Status: 200
+2026-04-14 18:08:10 - WARNING - BLOCKED - IP: 127.0.0.1 | Method: GET | URL: /get?q=<script>alert('xss')</script> | Rules: XSS - Script tag(high)
+2026-04-14 18:08:29 - INFO - PASS - IP: 127.0.0.1 | GET /etc/passwd | Status: 404
+2026-04-14 18:11:05 - INFO - PASS - IP: 127.0.0.1 | GET /get?id=1' OR '1'='1 | Status: 200
+2026-04-14 18:14:07 - INFO - PASS - IP: 127.0.0.1 | GET /products?id=1' OR '1'='1 | Status: 404
+2026-04-14 18:14:08 - INFO - PASS - IP: 127.0.0.1 | GET /favicon.ico | Status: 404
+2026-04-14 18:26:31 - INFO - PASS - IP: 127.0.0.1 | POST /login?user=admin&password=' OR '1'='1 | Status: 404
+2026-04-14 18:27:11 - INFO - PASS - IP: 127.0.0.1 | POST /login?user=admin&password=OR '1'='1' | Status: 404
+2026-04-14 18:28:12 - INFO - PASS - IP: 127.0.0.1 | POST /login?user=admin&password=OR '1'='1' | Status: 404
+2026-04-14 18:29:51 - INFO - PASS - IP: 127.0.0.1 | POST /get | Status: 405
+2026-04-14 18:30:17 - INFO - PASS - IP: 127.0.0.1 | GET /get | Status: 200
+2026-04-14 18:30:20 - INFO - PASS - IP: 127.0.0.1 | GET /get | Status: 502
+2026-04-14 18:31:12 - INFO - PASS - IP: 127.0.0.1 | GET /get?id=1' OR '1'='1 | Status: 200
+2026-04-14 18:32:25 - WARNING - BLOCKED - IP: 127.0.0.1 | Method: GET | URL: /search?q=<script>alert('xss')</script> | Rules: XSS - Script tag(high)
+2026-04-14 18:33:01 - INFO - PASS - IP: 127.0.0.1 | GET /get?file=../../../etc/passwd | Status: 200
+2026-04-14 18:35:49 - WARNING - BLOCKED - IP: 127.0.0.1 | Method: GET | URL: /get?q=1' OR '1'='1 | Rules: SQL Injection - OR/AND Injection(high)
+2026-04-14 18:36:07 - WARNING - BLOCKED - IP: 127.0.0.1 | Method: GET | URL: /get?q=1 OR 1=1 | Rules: SQL Injection - OR/AND Injection(high), SQL Injection - Numeric OR pattern(high)
+2026-04-14 18:36:45 - INFO - PASS - IP: 127.0.0.1 | GET /?file=etc/passwd | Status: 200
+2026-04-14 18:38:32 - INFO - PASS - IP: 127.0.0.1 | GET /get | Status: 200
