@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+    <h2 class="mb-4"><i class="fas fa-upload"></i> Импорт правил из JSON</h2>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-file-upload"></i> Загрузить JSON файл</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Файл с правилами (.json)</label>
+                            <input type="file" name="rules_file" class="form-control" accept=".json" required>
+                            <div class="form-text">
+                                Загрузите JSON файл с массивом правил
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Импортировать
+                        </button>
+                        <a href="/custom_rules" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Назад
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Пример JSON файла</h5>
+                </div>
+                <div class="card-body">
+                    <p>Файл должен содержать массив объектов с полями:</p>
+                    <ul>
+                        <li><code>name</code> — название правила (обязательно)</li>
+                        <li><code>pattern</code> — регулярное выражение (обязательно)</li>
+                        <li><code>target</code> — цель: <code>url</code>, <code>query</code>, <code>both</code>, <code>headers</code></li>
+                        <li><code>severity</code> — уровень: <code>critical</code>, <code>high</code>, <code>medium</code>, <code>low</code></li>
+                    </ul>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button>
+                        <pre><code class="language-json">[
+    {
+        "name": "SQL Injection - Comments",
+        "pattern": "(?i)(--|#|/\\*|\\*/)",
+        "target": "both",
+        "severity": "medium"
+    },
+    {
+        "name": "Block bots",
+        "pattern": "(bot|crawler|scraper)",
+        "target": "headers",
+        "severity": "medium"
+    },
+    {
+        "name": "Custom SQL Injection",
+        "pattern": "(?i)(union.*select|select.*from)",
+        "target": "both",
+        "severity": "high"
+    }
+]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.code-block {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 15px;
+    position: relative;
+}
+.code-block pre {
+    margin: 0;
+    overflow-x: auto;
+}
+.code-block code {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #d4d4d4;
+}
+.copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.copy-btn:hover {
+    background: #45a049;
+}
+</style>
+
+<script>
+function copyCode(button) {
+    const codeBlock = button.parentElement.querySelector('code');
+    const text = codeBlock.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = button.innerText;
+        button.innerText = '✅ Скопировано!';
+        setTimeout(() => {
+            button.innerText = originalText;
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}
