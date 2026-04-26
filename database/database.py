@@ -1,8 +1,9 @@
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Float, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
+import re
 
 Base = declarative_base()
 
@@ -59,6 +60,19 @@ class APIKeyHistory(Base):
     revoked_at = Column(DateTime, nullable=True)
 
 
+# Модель для правил пользователя
+class CustomRule(Base):
+    __tablename__ = 'custom_rules'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
+    name = Column(String(100), nullable=False)
+    pattern = Column(String(500), nullable=False)
+    severity = Column(String(20), default='medium')
+    target = Column(String(20), default='both')
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 # Инициализация базы данных
 engine = create_engine('sqlite:///db/waf.db', echo=False)
 Base.metadata.create_all(engine)
@@ -72,7 +86,6 @@ def get_user_by_api_key(api_key):
     session = Session()
     try:
         user = session.query(User).filter(User.api_key == api_key).first()
-        # Сохраняем нужные данные в словарь, чтобы закрыть сессию
         if user:
             user_data = {
                 'id': user.id,
@@ -134,15 +147,12 @@ def create_user(email, password_hash, api_key):
         session.add(user)
         session.commit()
 
-        # Сохраняем историю API-ключа
         history = APIKeyHistory(user_id=user.id, api_key=api_key)
         session.add(history)
         session.commit()
 
-        # Получаем ID до закрытия сессии
         user_id = user.id
 
-        # Возвращаем словарь с данными пользователя
         return {
             'id': user_id,
             'email': email,
@@ -153,31 +163,6 @@ def create_user(email, password_hash, api_key):
     except Exception as e:
         session.rollback()
         raise e
-    finally:
-        session.close()
-
-
-def update_api_key(user_id, new_api_key):
-    """Обновить API-ключ пользователя"""
-    session = Session()
-    try:
-        user = session.query(User).filter(User.id == user_id).first()
-        if user:
-            # Помечаем старый ключ как отозванный
-            old_history = session.query(APIKeyHistory).filter(
-                APIKeyHistory.user_id == user_id,
-                APIKeyHistory.revoked_at.is_(None)
-            ).first()
-            if old_history:
-                old_history.revoked_at = datetime.utcnow()
-
-            user.api_key = new_api_key
-            # Сохраняем новый ключ в историю
-            history = APIKeyHistory(user_id=user_id, api_key=new_api_key)
-            session.add(history)
-            session.commit()
-            return True
-        return False
     finally:
         session.close()
 
@@ -210,6 +195,113 @@ def set_user_rule_enabled(user_id, rule_id, enabled):
         session.close()
 
 
+def get_custom_rules(user_id):
+    """Получить все кастомные правила пользователя"""
+    session = Session()
+    try:
+        rules = session.query(CustomRule).filter(
+            CustomRule.user_id == user_id
+        ).order_by(CustomRule.id).all()
+        return [{
+            'id': r.id,
+            'name': r.name,
+            'pattern': r.pattern,
+            'severity': r.severity,
+            'target': r.target,
+            'enabled': r.enabled
+        } for r in rules]
+    finally:
+        session.close()
+
+
+def add_custom_rule(user_id, name, pattern, severity='medium', target='both'):
+    """Добавить новое пользовательское правило"""
+    session = Session()
+    try:
+        rule = CustomRule(
+            user_id=user_id,
+            name=name,
+            pattern=pattern,
+            severity=severity,
+            target=target
+        )
+        session.add(rule)
+        session.commit()
+        return rule.id
+    finally:
+        session.close()
+
+
+def delete_custom_rule(user_id, rule_id):
+    """Удалить пользовательское правило"""
+    session = Session()
+    try:
+        session.query(CustomRule).filter(
+            CustomRule.user_id == user_id,
+            CustomRule.id == rule_id
+        ).delete()
+        session.commit()
+        return True
+    finally:
+        session.close()
+
+
+def toggle_custom_rule(user_id, rule_id, enabled):
+    """Включить/выключить пользовательское правило"""
+    session = Session()
+    try:
+        rule = session.query(CustomRule).filter(
+            CustomRule.user_id == user_id,
+            CustomRule.id == rule_id
+        ).first()
+        if rule:
+            rule.enabled = enabled
+            session.commit()
+            return True
+        return False
+    finally:
+        session.close()
+
+
+def import_custom_rules_from_json(user_id, json_data):
+    """Импортировать правила из JSON"""
+    imported = []
+    errors = []
+
+    try:
+        rules = json.loads(json_data)
+        if not isinstance(rules, list):
+            rules = [rules]
+    except json.JSONDecodeError as e:
+        errors.append(f"Ошибка парсинга JSON: {e}")
+        return imported, errors
+
+    for i, rule_data in enumerate(rules):
+        if 'name' not in rule_data or 'pattern' not in rule_data:
+            errors.append(f"Правило {i+1}: отсутствует name или pattern")
+            continue
+
+        try:
+            re.compile(rule_data['pattern'])
+        except re.error as e:
+            errors.append(f"Правило '{rule_data.get('name', 'Unknown')}': невалидный regex - {e}")
+            continue
+
+        rule_id = add_custom_rule(
+            user_id=user_id,
+            name=rule_data['name'],
+            pattern=rule_data['pattern'],
+            severity=rule_data.get('severity', 'medium'),
+            target=rule_data.get('target', 'both')
+        )
+        imported.append({
+            'id': rule_id,
+            'name': rule_data['name']
+        })
+
+    return imported, errors
+
+
 def log_statistic(user_id, request_type, method, url, client_ip, rule_name=None, severity=None):
     """Записать статистику"""
     session = Session()
@@ -233,7 +325,6 @@ def get_user_statistics(user_id, days=7):
     """Получить статистику пользователя за последние N дней"""
     session = Session()
     try:
-        from datetime import timedelta
         cutoff = datetime.utcnow() - timedelta(days=days)
 
         stats = session.query(Statistic).filter(
@@ -245,7 +336,6 @@ def get_user_statistics(user_id, days=7):
         blocked = len([s for s in stats if s.request_type == 'blocked'])
         rate_limited = len([s for s in stats if s.request_type == 'rate_limited'])
 
-        # Группировка по дням для графика
         daily = {}
         for stat in stats:
             day = stat.timestamp.strftime('%Y-%m-%d')
@@ -274,7 +364,6 @@ def get_recent_attacks(user_id, limit=50):
             Statistic.request_type == 'blocked'
         ).order_by(Statistic.timestamp.desc()).limit(limit).all()
 
-        # Преобразуем в список словарей
         result = []
         for attack in attacks:
             result.append({
@@ -315,12 +404,10 @@ def get_user_blocked_ips(user_id):
 
 def block_ip(user_id, ip, duration_seconds, reason):
     """Заблокировать IP"""
-    from datetime import timedelta
     session = Session()
     try:
         blocked_until = datetime.utcnow() + timedelta(seconds=duration_seconds)
 
-        # Удаляем старые блокировки для этого IP
         session.query(BlockedIP).filter(
             BlockedIP.user_id == user_id,
             BlockedIP.ip == ip
@@ -373,6 +460,7 @@ def delete_user(user_id):
         session.query(Statistic).filter(Statistic.user_id == user_id).delete()
         session.query(BlockedIP).filter(BlockedIP.user_id == user_id).delete()
         session.query(APIKeyHistory).filter(APIKeyHistory.user_id == user_id).delete()
+        session.query(CustomRule).filter(CustomRule.user_id == user_id).delete()
         session.query(User).filter(User.id == user_id).delete()
         session.commit()
     finally:
