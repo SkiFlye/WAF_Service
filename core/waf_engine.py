@@ -1,7 +1,7 @@
 import re
 import time
 from collections import defaultdict
-from db.database import log_statistic, block_ip, is_ip_blocked, get_user_rules_enabled
+from database.database import log_statistic, block_ip, is_ip_blocked, get_user_rules_enabled
 
 # Правила безопасности (общие для всех пользователей)
 RULES = [
