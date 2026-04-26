@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 from aiohttp import web
 
-from db.database import get_user_by_api_key, log_statistic, is_ip_blocked
+from database.database import get_user_by_api_key, log_statistic, is_ip_blocked
 from core.waf_engine import waf_core
 
 # Конфигурация
@@ -33,7 +33,6 @@ class WAFProxy:
         await self.runner.setup()
         site = web.TCPSite(self.runner, self.proxy_host, self.proxy_port)
         await site.start()
-        print(f"WAF Proxy запущен на http://{self.proxy_host}:{self.proxy_port}")
 
     async def stop(self):
         if self.session:
