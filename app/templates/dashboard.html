@@ -69,11 +69,22 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-bug"></i> Атаки</h5>
-                    {% if recent_attacks|length > 10 %}
-                    <button id="showAllBtn" class="btn btn-sm" onclick="toggleAllLogs()">
-                        <i class="fas fa-list"></i> Показать все
-                    </button>
-                    {% endif %}
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-white" style="font-size: 14px;">Сортировать по:</span>
+                        <select id="sortSelect" class="form-select form-select-sm" style="width: 150px;" onchange="sortLogs()">
+                            <option value="time-desc">Время (новые)</option>
+                            <option value="time-asc">Время (старые)</option>
+                            <option value="ip">IP адрес</option>
+                            <option value="method">Метод</option>
+                            <option value="rule">Правило</option>
+                            <option value="severity">Серьезность</option>
+                        </select>
+                        {% if recent_attacks|length > 10 %}
+                        <button id="showAllBtn" class="btn btn-sm" onclick="toggleAllLogs()">
+                            <i class="fas fa-list"></i> Показать все
+                        </button>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="card-body" id="logsContainer">
                     {% if recent_attacks %}
@@ -89,9 +100,9 @@
                                     <th>Серьезность</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="logsTableBody">
                                 {% for attack in recent_attacks %}
-                                <tr class="log-row {% if loop.index > 10 %}hidden-log{% endif %}">
+                                <tr class="log-row {% if loop.index > 10 %}hidden-log{% endif %}" data-time="{{ attack.timestamp.timestamp() }}" data-ip="{{ attack.client_ip }}" data-method="{{ attack.method }}" data-rule="{{ attack.rule_name or 'N/A' }}" data-severity="{% if attack.severity == 'critical' %}4{% elif attack.severity == 'high' %}3{% elif attack.severity == 'medium' %}2{% else %}1{% endif %}">
                                     <td><small>{{ attack.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
                                     <td><code>{{ attack.client_ip }}</code></td>
                                     <td>{{ attack.method }}</td>
@@ -203,11 +214,19 @@
         border-radius: 10px;
         overflow: hidden;
     }
+
+    .form-select-sm {
+        font-size: 14px;
+        padding: 5px 10px;
+    }
+
+    .gap-2 {
+        gap: 8px;
+    }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // График
     const ctx = document.getElementById('attacksChart').getContext('2d');
     const daily = {{ stats.daily|tojson }};
     const labels = Object.keys(daily).sort();
@@ -244,6 +263,10 @@
             }
         }
     });
+
+    let currentView = 'compact';
+    let currentSort = 'time-desc';
+
     function toggleAllLogs() {
         const container = document.getElementById('logsContainer');
         const btn = document.getElementById('showAllBtn');
@@ -253,10 +276,50 @@
         if (container.classList.contains('show-all')) {
             container.classList.remove('show-all');
             if (btn) btn.innerHTML = '<i class="fas fa-list"></i> Показать все';
+            currentView = 'compact';
         } else {
             container.classList.add('show-all');
             if (btn) btn.innerHTML = '<i class="fas fa-compress"></i> Скрыть';
+            currentView = 'full';
         }
+
+        applySort();
+    }
+
+    function sortLogs() {
+        currentSort = document.getElementById('sortSelect').value;
+        applySort();
+    }
+
+    function applySort() {
+        const tbody = document.getElementById('logsTableBody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            if (currentSort === 'time-desc') {
+                return parseFloat(b.dataset.time) - parseFloat(a.dataset.time);
+            } else if (currentSort === 'time-asc') {
+                return parseFloat(a.dataset.time) - parseFloat(b.dataset.time);
+            } else if (currentSort === 'ip') {
+                return a.dataset.ip.localeCompare(b.dataset.ip);
+            } else if (currentSort === 'method') {
+                return a.dataset.method.localeCompare(b.dataset.method);
+            } else if (currentSort === 'rule') {
+                return a.dataset.rule.localeCompare(b.dataset.rule);
+            } else if (currentSort === 'severity') {
+                return parseFloat(b.dataset.severity) - parseFloat(a.dataset.severity);
+            }
+            return 0;
+        });
+
+        rows.forEach((row, index) => {
+            tbody.appendChild(row);
+            if (currentView === 'compact' && index >= 10) {
+                row.classList.add('hidden-log');
+            } else {
+                row.classList.remove('hidden-log');
+            }
+        });
     }
 </script>
 {% endblock %}
