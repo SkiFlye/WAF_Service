@@ -1,9 +1,9 @@
 import re
 import time
 from collections import defaultdict
-from db.database import log_statistic, block_ip, is_ip_blocked, get_user_rules_enabled
+from database.database import log_statistic, block_ip, is_ip_blocked, get_user_rules_enabled
 
-# Правила безопасности (общие для всех пользователей)
+# Правила безопасности
 RULES = [
     {"id": 1, "name": "SQL Injection - UNION SELECT", "pattern": re.compile(r"(?i)(union\s+select\s+.+from)"),
      "severity": "high"},
@@ -26,7 +26,6 @@ RULES = [
 
 class RateLimiter:
     """Rate limiter для каждого пользователя"""
-
     def __init__(self):
         self.requests = defaultdict(list)  # user_id:ip -> [timestamps]
 
@@ -34,25 +33,20 @@ class RateLimiter:
         """Проверить и записать запрос"""
         key = f"{user_id}:{client_ip}"
         current_time = time.time()
-
         # Очищаем старые записи
         self.requests[key] = [ts for ts in self.requests[key] if current_time - ts < 60]
-
         current_count = len(self.requests[key])
         allowed = current_count < limit_per_minute
-
         if allowed:
             self.requests[key].append(current_time)
             remaining = limit_per_minute - current_count - 1
         else:
             remaining = 0
-
         return allowed, remaining
 
 
 class WAFCore:
     """Ядро WAF для проверки запросов"""
-
     def __init__(self):
         self.rate_limiter = RateLimiter()
 
@@ -60,26 +54,21 @@ class WAFCore:
         """Проверить запрос на атаки"""
         user_rules = get_user_rules_enabled(user_id)
         triggered_rules = []
-
         # Нормализуем данные
         import urllib.parse
         decoded_path = urllib.parse.unquote(path)
         decoded_query = urllib.parse.unquote(query_string or "")
-
         for rule in RULES:
             # Проверяем, включено ли правило у пользователя
             if str(rule["id"]) in user_rules and not user_rules[str(rule["id"])]:
                 continue
-
             pattern = rule["pattern"]
-
             if pattern.search(decoded_path) or pattern.search(decoded_query):
                 triggered_rules.append({
                     "id": rule["id"],
                     "name": rule["name"],
                     "severity": rule["severity"]
                 })
-
         return triggered_rules
 
     def check_rate_limit(self, user_id, client_ip, rate_limit):
@@ -88,7 +77,6 @@ class WAFCore:
 
     def process_request(self, user_id, client_ip, method, path, headers, query_string, rate_limit):
         """Обработать запрос и вернуть решение"""
-
         # 1. Проверка блокировки IP
         if is_ip_blocked(user_id, client_ip):
             log_statistic(user_id, "rate_limited", method, path, client_ip)
@@ -103,14 +91,12 @@ class WAFCore:
 
         # 3. Проверка на атаки
         triggered_rules = self.check_request(user_id, method, path, headers, query_string)
-
         if triggered_rules:
             # Логируем атаку
             rule_names = [r["name"] for r in triggered_rules]
             log_statistic(user_id, "blocked", method, path, client_ip,
                           rule_names[0] if rule_names else None,
                           triggered_rules[0]["severity"] if triggered_rules else None)
-
             # При множественных атаках блокируем IP дольше
             return {
                 "action": "block",
@@ -124,5 +110,4 @@ class WAFCore:
         return {"action": "pass", "status": 200}
 
 
-# Глобальный экземпляр
 waf_core = WAFCore()
