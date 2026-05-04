@@ -21,11 +21,11 @@
                     </thead>
                     <tbody>
                         {% for block in blocked_ips %}
-                        <tr>
+                        <tr id="block-row-{{ block.ip|replace('.', '_') }}">
                             <td><code>{{ block.ip }}</code></td>
                             <td>{{ block.blocked_until.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                             <td>{{ block.reason }}</td>
-                            <td id="timer-{{ loop.index }}"></td>
+                            <td class="timer-cell" data-until="{{ block.blocked_until.isoformat() }}">--</td>
                             <td>
                                 <button class="btn btn-sm btn-success" onclick="unblockIP('{{ block.ip }}')">
                                     <i class="fas fa-check"></i> Разблокировать
@@ -33,7 +33,7 @@
                             </td>
                         </tr>
                         {% else %}
-                        <tr>
+                        <tr id="noBlocksRow">
                             <td colspan="5" class="text-center">
                                 <i class="fas fa-check-circle"></i> Нет заблокированных IP
                             </td>
@@ -58,9 +58,88 @@
             <p>Вы можете разблокировать IP вручную в любое время.</p>
         </div>
     </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Ручная блокировка IP</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="text" id="manualIp" class="form-control" placeholder="IP адрес">
+                        <select id="manualDuration" class="form-select" style="width: auto;">
+                            <option value="60">1 минута</option>
+                            <option value="300">5 минут</option>
+                            <option value="3600">1 час</option>
+                            <option value="86400">24 часа</option>
+                            <option value="604800">Неделя</option>
+                        </select>
+                        <button class="btn btn-danger" onclick="blockIpManually()">
+                            <i class="fas fa-ban"></i> Заблокировать
+                        </button>
+                    </div>
+                    <div class="form-text mt-2">
+                        Введите IP адрес и выберите время блокировки
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+<style>
+    .btn-danger {
+        background-color: #dc3545;
+        border: none;
+    }
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+</style>
+
 <script>
+function blockIpManually() {
+    const ip = document.getElementById('manualIp').value.trim();
+    const duration = parseInt(document.getElementById('manualDuration').value);
+
+    if (!ip) {
+        alert('Введите IP адрес');
+        return;
+    }
+
+    const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (!ipPattern.test(ip)) {
+        alert('Введите корректный IP адрес (например, 192.168.1.1)');
+        return;
+    }
+
+    if (confirm(`Заблокировать IP ${ip} на выбранное время?`)) {
+        fetch('/block_ip_manual', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ip: ip,
+                duration: duration,
+                reason: 'Ручная блокировка'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Ошибка: ' + (data.error || 'Не удалось заблокировать IP'));
+            }
+        })
+        .catch(error => {
+            alert('Ошибка при блокировке: ' + error);
+        });
+    }
+}
+
 function unblockIP(ip) {
     if (confirm(`Разблокировать IP ${ip}?`)) {
         fetch('/unblock_ip', {
@@ -80,26 +159,31 @@ function unblockIP(ip) {
 }
 
 function updateTimers() {
-    {% for block in blocked_ips %}
-    const until = new Date("{{ block.blocked_until.isoformat() }}");
+    const timerCells = document.querySelectorAll('.timer-cell');
     const now = new Date();
-    const diff = Math.max(0, Math.floor((until - now) / 1000));
 
-    if (diff > 0) {
-        const hours = Math.floor(diff / 3600);
-        const minutes = Math.floor((diff % 3600) / 60);
-        const seconds = diff % 60;
+    timerCells.forEach(cell => {
+        const untilStr = cell.getAttribute('data-until');
+        if (!untilStr) return;
 
-        let text = "";
-        if (hours > 0) text += `${hours}ч `;
-        if (minutes > 0 || hours > 0) text += `${minutes}м `;
-        text += `${seconds}с`;
+        const until = new Date(untilStr);
+        const diff = Math.max(0, Math.floor((until - now) / 1000));
 
-        document.getElementById(`timer-{{ loop.index }}`).innerText = text;
-    } else {
-        document.getElementById(`timer-{{ loop.index }}`).innerText = "Истекло";
-    }
-    {% endfor %}
+        if (diff > 0) {
+            const hours = Math.floor(diff / 3600);
+            const minutes = Math.floor((diff % 3600) / 60);
+            const seconds = diff % 60;
+
+            let text = "";
+            if (hours > 0) text += `${hours}ч `;
+            if (minutes > 0 || hours > 0) text += `${minutes}м `;
+            text += `${seconds}с`;
+
+            cell.innerText = text;
+        } else {
+            cell.innerText = "Истекло";
+        }
+    });
 }
 
 setInterval(updateTimers, 1000);
