@@ -267,12 +267,29 @@ def blocked_ips():
     return render_template('blocked_ips.html', blocked_ips=blocked)
 
 
+@app.route('/block_ip_manual', methods=['POST'])
+@login_required
+def block_ip_manual():
+    """Ручная блокировка IP"""
+    data = request.json
+    ip = data.get('ip')
+    duration = data.get('duration', 3600)  # по умолчанию 1 час
+    reason = data.get('reason', 'Ручная блокировка')
+    if not ip:
+        return jsonify({'success': False, 'error': 'IP не указан'})
+
+    from database.database import block_ip as block_ip_bd
+    block_ip_bd(current_user.id, ip, duration, reason)
+    return jsonify({'success': True})
+
+
 @app.route('/unblock_ip', methods=['POST'])
 @login_required
 def unblock_ip():
     data = request.json
     ip = data.get('ip')
-    unblock_ip(current_user.id, ip)
+    from database.database import unblock_ip as unblock_ip_bd
+    unblock_ip_bd(current_user.id, ip)
     return jsonify({'success': True})
 
 

@@ -11,8 +11,12 @@
                 </div>
                 <div class="card-body">
                     <label class="form-label">Ваш API-ключ для подключения сайта</label>
-                    <div class="api-key">
-                        <code>{{ user.api_key }}</code>
+                    <div class="input-group">
+                        <input type="text" id="apiKeyInput" class="form-control font-monospace"
+                               value="{{ user.api_key }}" readonly style="background-color: #f8f9fa;">
+                        <button class="btn btn-primary" type="button" onclick="copyApiKey()" id="copyBtn">
+                            <i class="fas fa-copy"></i> Копировать
+                        </button>
                     </div>
                     <div class="alert alert-warning mt-3">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -65,7 +69,7 @@ import requests
 app = Flask(__name__)
 
 WAF_URL = "(пока под вопросом)"
-API_KEY = "ваш_апи_ключ"
+API_KEY = "{{ user.api_key }}"
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
@@ -102,7 +106,7 @@ if __name__ == '__main__':
         <div class="col-md-12">
             <div class="card border-danger">
                 <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i>Удаление аккаунта</h5>
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Удаление аккаунта</h5>
                 </div>
                 <div class="card-body">
                     <p>Удаление аккаунта приведет к потере всей статистики и настроек. API-ключ станет недействительным.</p>
@@ -164,6 +168,21 @@ if __name__ == '__main__':
 </style>
 
 <script>
+function copyApiKey() {
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    apiKeyInput.select();
+    apiKeyInput.setSelectionRange(0, 99999);
+
+    navigator.clipboard.writeText(apiKeyInput.value).then(() => {
+        const copyBtn = document.getElementById('copyBtn');
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check"></i> Скопировано!';
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+        }, 2000);
+    });
+}
+
 function copyCode(button) {
     const codeBlock = button.parentElement.querySelector('code');
     const text = codeBlock.innerText;

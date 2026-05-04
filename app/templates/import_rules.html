@@ -43,7 +43,6 @@
                         <li><code>severity</code> — уровень: <code>critical</code>, <code>high</code>, <code>medium</code>, <code>low</code></li>
                     </ul>
                     <div class="code-block">
-                        <button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button>
                         <pre><code class="language-json">[
     {
         "name": "SQL Injection - Comments",
@@ -109,10 +108,7 @@ function copyCode(button) {
     const codeBlock = button.parentElement.querySelector('code');
     const text = codeBlock.innerText;
     navigator.clipboard.writeText(text).then(() => {
-        const originalText = button.innerText;
-        button.innerText = '✅ Скопировано!';
         setTimeout(() => {
-            button.innerText = originalText;
         }, 2000);
     });
 }
