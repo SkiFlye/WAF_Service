@@ -1,33 +1,16 @@
-import re
 import time
 from collections import defaultdict
 from database.database import log_statistic, block_ip, is_ip_blocked, get_user_rules_enabled
+from core.rules import get_rules
 
 # Правила безопасности
-RULES = [
-    {"id": 1, "name": "SQL Injection - UNION SELECT", "pattern": re.compile(r"(?i)(union\s+select\s+.+from)"),
-     "severity": "high"},
-    {"id": 2, "name": "SQL Injection - OR/AND Injection",
-     "pattern": re.compile(r"(?i)([\w']+\s+(or|and)\s+[\w']+\s*=\s*[\w']+)"), "severity": "high"},
-    {"id": 3, "name": "SQL Injection - Comments", "pattern": re.compile(r"(?i)(--|\#|\/\*|\*\/)"),
-     "severity": "medium"},
-    {"id": 4, "name": "XSS - Script tag", "pattern": re.compile(r"(?i)(<script[^>]*>.*?</script>)"),
-     "severity": "high"},
-    {"id": 5, "name": "XSS - Event handlers", "pattern": re.compile(r"(?i)(on\w+\s*=\s*['\"]?[^'\">]*)"),
-     "severity": "high"},
-    {"id": 6, "name": "XSS - Javascript protocol", "pattern": re.compile(r"(?i)(javascript\s*:\s*)"),
-     "severity": "high"},
-    {"id": 7, "name": "Path Traversal - Unix", "pattern": re.compile(r"(\.\./|\.\.\\)"), "severity": "high"},
-    {"id": 8, "name": "Command Injection", "pattern": re.compile(r"(\||;|\&\&|\$\(|`|\|&)"), "severity": "critical"},
-    {"id": 9, "name": "Scanner detection",
-     "pattern": re.compile(r"(sqlmap|nikto|nmap|acunetix|nessus|burp)", re.IGNORECASE), "severity": "medium"},
-]
+RULES = get_rules()
 
 
 class RateLimiter:
     """Rate limiter для каждого пользователя"""
     def __init__(self):
-        self.requests = defaultdict(list)  # user_id:ip -> [timestamps]
+        self.requests = defaultdict(list)
 
     def check_and_record(self, user_id, client_ip, limit_per_minute):
         """Проверить и записать запрос"""
@@ -50,47 +33,92 @@ class WAFCore:
     def __init__(self):
         self.rate_limiter = RateLimiter()
 
-    def check_request(self, user_id, method, path, headers, query_string):
-        """Проверить запрос на атаки"""
+    def check_request(self, user_id, method, path, headers, query_string, body=None):
+        """Проверить запрос на атаки (включая тело POST запроса)"""
         user_rules = get_user_rules_enabled(user_id)
         triggered_rules = []
+
         # Нормализуем данные
         import urllib.parse
         decoded_path = urllib.parse.unquote(path)
         decoded_query = urllib.parse.unquote(query_string or "")
+
+        # Декодируем тело запроса
+        decoded_body = ""
+        if body:
+            try:
+                # Декодируем URL-encoding
+                decoded_body = urllib.parse.unquote(body)
+            except:
+                decoded_body = body
+
         for rule in RULES:
-            # Проверяем, включено ли правило у пользователя
             if str(rule["id"]) in user_rules and not user_rules[str(rule["id"])]:
                 continue
             pattern = rule["pattern"]
-            if pattern.search(decoded_path) or pattern.search(decoded_query):
-                triggered_rules.append({
-                    "id": rule["id"],
-                    "name": rule["name"],
-                    "severity": rule["severity"]
-                })
+            target = rule.get("target", "both")
+            # 1. Проверка URL
+            if target in ["url", "both"]:
+                if pattern.search(decoded_path):
+                    triggered_rules.append({
+                        "id": rule["id"],
+                        "name": rule["name"],
+                        "severity": rule["severity"],
+                        "location": "URL"
+                    })
+                    continue
+            # 2. Проверка параметров запроса
+            if target in ["query", "both"] and decoded_query:
+                if pattern.search(decoded_query):
+                    triggered_rules.append({
+                        "id": rule["id"],
+                        "name": rule["name"],
+                        "severity": rule["severity"],
+                        "location": "Query string"
+                    })
+                    continue
+            # 3. Проверка декодированного тела POST запроса
+            if target in ["body", "both"] and decoded_body:
+                if pattern.search(decoded_body):
+                    triggered_rules.append({
+                        "id": rule["id"],
+                        "name": rule["name"],
+                        "severity": rule["severity"],
+                        "location": "Body"
+                    })
+                    continue
+            # 4. Проверка заголовков
+            if target == "headers":
+                headers_str = f"{headers.get('User-Agent', '')} {headers.get('Referer', '')}".lower()
+                if pattern.search(headers_str):
+                    triggered_rules.append({
+                        "id": rule["id"],
+                        "name": rule["name"],
+                        "severity": rule["severity"],
+                        "location": "Headers"
+                    })
+                    continue
+
         return triggered_rules
 
     def check_rate_limit(self, user_id, client_ip, rate_limit):
         """Проверить rate limit"""
         return self.rate_limiter.check_and_record(user_id, client_ip, rate_limit)
 
-    def process_request(self, user_id, client_ip, method, path, headers, query_string, rate_limit):
+    def process_request(self, user_id, client_ip, method, path, headers, query_string, rate_limit, body=None):
         """Обработать запрос и вернуть решение"""
         # 1. Проверка блокировки IP
         if is_ip_blocked(user_id, client_ip):
             log_statistic(user_id, "rate_limited", method, path, client_ip)
             return {"action": "block", "reason": "rate_limit", "status": 429}
-
         # 2. Проверка rate limit
         allowed, remaining = self.check_rate_limit(user_id, client_ip, rate_limit)
         if not allowed:
             block_ip(user_id, client_ip, 60, "Rate limit exceeded")
             log_statistic(user_id, "rate_limited", method, path, client_ip)
             return {"action": "block", "reason": "rate_limit", "status": 429}
-
         # 3. Проверка на атаки
-        triggered_rules = self.check_request(user_id, method, path, headers, query_string)
+        triggered_rules = self.check_request(user_id, method, path, headers, query_string, body)
         if triggered_rules:
             # Логируем атаку
             rule_names = [r["name"] for r in triggered_rules]
@@ -104,7 +132,6 @@ class WAFCore:
                 "status": 403,
                 "rules": triggered_rules
             }
-
         # 4. Обычный запрос
         log_statistic(user_id, "normal", method, path, client_ip)
         return {"action": "pass", "status": 200}

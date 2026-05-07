@@ -7,7 +7,6 @@ _rules_by_id = {}
 def init_rules():
     """Инициализация правил безопасности"""
     global _rules, _rules_by_id
-
     rules_data = [
         {
             "id": 1,
@@ -128,34 +127,27 @@ def toggle_rule(rule_id, enabled):
 
 
 def check_request(method, path, headers, query_string=None, body=None):
-    """
-    Проверить запрос на наличие атак
-
-    Returns:
-        list: Список сработавших правил
-    """
+    """Проверить запрос на наличие атак"""
     triggered_rules = []
-
-    # Нормализуем данные для проверки (убираем URL-encoding)
+    # Нормализуем данные для проверки
     import urllib.parse
     decoded_path = urllib.parse.unquote(path)
     decoded_query = urllib.parse.unquote(query_string or "")
-
-    check_data = {
-        "url": decoded_path,
-        "query": decoded_query,
-        "headers": f"{headers.get('User-Agent', '')} {headers.get('Referer', '')}".lower()
-    }
-
+    # Нормализуем тело запроса
+    decoded_body = ""
+    if body:
+        try:
+            decoded_body = urllib.parse.unquote(body)
+        except:
+            decoded_body = body
     for rule in _rules:
         if not rule["enabled"]:
             continue
-
         pattern = rule["pattern"]
         target = rule["target"]
-
+        # Проверка URL
         if target in ["url", "both"]:
-            if pattern.search(check_data["url"]):
+            if pattern.search(decoded_path):
                 triggered_rules.append({
                     "id": rule["id"],
                     "name": rule["name"],
@@ -163,9 +155,9 @@ def check_request(method, path, headers, query_string=None, body=None):
                     "location": "URL"
                 })
                 continue
-
+        # Проверка параметров запроса (query string)
         if target in ["query", "both"] and decoded_query:
-            if pattern.search(check_data["query"]):
+            if pattern.search(decoded_query):
                 triggered_rules.append({
                     "id": rule["id"],
                     "name": rule["name"],
@@ -173,15 +165,27 @@ def check_request(method, path, headers, query_string=None, body=None):
                     "location": "Query string"
                 })
                 continue
-
+        # Проверка тела POST запроса
+        if target in ["body", "both"] and decoded_body:
+            if pattern.search(decoded_body):
+                triggered_rules.append({
+                    "id": rule["id"],
+                    "name": rule["name"],
+                    "severity": rule["severity"],
+                    "location": "Body"
+                })
+                continue
+        # Проверка заголовков
         if target == "headers":
-            if pattern.search(check_data["headers"]):
+            headers_str = f"{headers.get('User-Agent', '')} {headers.get('Referer', '')}".lower()
+            if pattern.search(headers_str):
                 triggered_rules.append({
                     "id": rule["id"],
                     "name": rule["name"],
                     "severity": rule["severity"],
                     "location": "Headers"
                 })
+                continue
 
     return triggered_rules
 
