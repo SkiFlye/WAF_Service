@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import urllib.parse
 from aiohttp import web
 
 from database.database import get_user_by_api_key, log_statistic, is_ip_blocked
@@ -65,6 +66,17 @@ class WAFProxy:
                 text="<h1>429 Too Many Requests</h1><p>IP temporarily blocked.</p>",
                 content_type="text/html"
             )
+        body_bytes = None
+        body_text = ""
+        if method in ['POST', 'PUT', 'PATCH']:
+            body_bytes = await request.read()
+            try:
+                # Декодируем тело запроса
+                body_text = body_bytes.decode('utf-8', errors='ignore')
+                body_text = urllib.parse.unquote(body_text)
+            except:
+                body_text = str(body_bytes)
+
         # Проверяем через WAF core
         result = waf_core.process_request(
             user_id=user_id,
@@ -73,8 +85,10 @@ class WAFProxy:
             path=path,
             headers=dict(request.headers),
             query_string=query_string,
-            rate_limit=rate_limit
+            rate_limit=rate_limit,
+            body=body_text
         )
+
         if result["action"] == "block":
             if result.get("reason") == "attack":
                 rules_html = "".join([f"<li>{r['name']}</li>" for r in result.get("rules", [])])
@@ -96,20 +110,16 @@ class WAFProxy:
             upstream_url = f"{scheme}://{self.upstream_host}:{self.upstream_port}{path}"
             if query_string:
                 upstream_url += f"?{query_string}"
-            # Подготавливаем заголовки (убираем X-API-Key и Host)
+            # Подготавливаем заголовки
             forward_headers = {k: v for k, v in request.headers.items()
                                if k.lower() not in ['host', 'x-api-key', 'content-length']}
             forward_headers['Host'] = f"{self.upstream_host}:{self.upstream_port}"
-            # Читаем тело для POST/PUT запросов
-            body = None
-            if method in ['POST', 'PUT', 'PATCH']:
-                body = await request.read()
             # Отправляем запрос к upstream
             async with self.session.request(
                     method=method,
                     url=upstream_url,
                     headers=forward_headers,
-                    data=body,
+                    data=body_bytes,
                     timeout=aiohttp.ClientTimeout(total=30)
             ) as upstream_response:
                 response_body = await upstream_response.read()
