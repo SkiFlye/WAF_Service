@@ -56,46 +56,60 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-code"></i> Пример подключения</h5>
+                    <h5 class="mb-0"><i class="fas fa-code"></i> Инструкция по подключению</h5>
                 </div>
                 <div class="card-body">
-                    <p>Скопируйте этот код в ваш Python-проект (Flask):</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-download"></i>
+                        <strong>Шаг 1:</strong> Скачайте файл декоратора
+                    </div>
 
-                    <div class="code-block">
-                        <button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button>
-                        <pre><code class="language-python">from flask import Flask, request, jsonify
-import requests
-
-app = Flask(__name__)
-
-WAF_URL = "(пока под вопросом)"
-API_KEY = "{{ user.api_key }}"
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
-def catch_all(path):
-    print(f"Запрос к WAF: {path}")
-
-    try:
-        response = requests.request(
-            method=request.method,
-            url=f"{WAF_URL}/{path}",
-            headers={"X-API-Key": API_KEY},
-            params=request.args,
-            data=request.get_data()
-        )
-        return response.content, response.status_code
-
-    except requests.exceptions.ConnectionError:
-        return "WAF сервис недоступен", 503
-
-if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5001, debug=True)</code></pre>
+                    <div class="text-center mb-4">
+                        <a href="{{ url_for('download_waf_check') }}" class="btn btn-success btn-lg">
+                            <i class="fas fa-download"></i> Скачать waf_check.py
+                        </a>
+                        <p class="text-muted mt-2">Скачайте файл и поместите его в корень вашего Flask проекта</p>
                     </div>
 
                     <div class="alert alert-info mt-3">
-                        <i class="fas fa-info-circle"></i>
-                        После запуска все запросы к вашему сайту будут проходить через WAF.
+                        <i class="fas fa-plug"></i>
+                        <strong>Шаг 2:</strong> Импортируйте и используйте декоратор в вашем Flask приложении
+                    </div>
+
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button>
+                        <pre><code class="language-python">from waf_check import waf_check
+
+# Настройки WAF
+WAF_URL = "http://{{ request.host.split(':')[0] }}:8080"
+API_KEY = "{{ user.api_key }}"
+
+# Пример использования на маршруте
+@app.route('/login', methods=['GET', 'POST'])
+@waf_check(WAF_URL, API_KEY)
+def login():
+    # Ваш код обработки логина
+    pass
+
+# Для всех маршрутов, которые нужно защитить, добавьте декоратор:
+@app.route('/register', methods=['GET', 'POST'])
+@waf_check(WAF_URL, API_KEY)
+def register():
+    pass
+
+@app.route('/user/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])
+@waf_check(WAF_URL, API_KEY)
+def user(user_id):
+    pass</code></pre>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-play"></i>
+                        <strong>Шаг 3:</strong> Запустите ваше приложение
+                    </div>
+                    <div class="alert alert-success mt-3">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>Готово!</strong> Теперь все запросы к защищенным маршрутам будут проходить через WAF.
                     </div>
                 </div>
             </div>
