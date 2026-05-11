@@ -31,8 +31,10 @@
             </div>
         </div>
     </div>
+
+    <!-- График на всю ширину -->
     <div class="row mt-4">
-        <div class="col-md-8">
+        <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Атаки по дням</h5>
@@ -42,28 +44,8 @@
                 </div>
             </div>
         </div>
-
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> API Инструкция</h5>
-                </div>
-                <div class="card-body">
-                    <p>Для подключения вашего сайта к WAF:</p>
-                    <ol>
-                        <li>Скопируйте ваш API-ключ в настройках</li>
-                        <li>Настройте ваш сервер отправлять все запросы на:</li>
-                        <code>http://(пока_под_вопросом):8080</code>
-                        <li class="mt-2">Добавьте заголовок:</li>
-                        <code>X-API-Key: ваш_ключ</code>
-                    </ol>
-                    <a href="/settings" class="btn btn-sm btn-primary">
-                        <i class="fas fa-cog"></i> Перейти к настройкам
-                    </a>
-                </div>
-            </div>
-        </div>
     </div>
+
     <div class="row mt-4">
         <div class="col-md-12">
             <div class="card">
@@ -256,6 +238,7 @@
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             plugins: {
                 legend: {
                     position: 'top',
