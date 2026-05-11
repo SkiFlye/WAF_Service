@@ -37,7 +37,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-# ========== ОСНОВНЫЕ МАРШРУТЫ ==========
+# ОСНОВНЫЕ МАРШРУТЫ
 
 @app.route('/')
 def index():
@@ -110,7 +110,7 @@ def dashboard():
                            user=user)
 
 
-# ========== СТАНДАРТНЫЕ ПРАВИЛА ==========
+# СТАНДАРТНЫЕ ПРАВИЛА
 
 @app.route('/rules')
 @login_required
@@ -138,7 +138,7 @@ def toggle_rule():
     return jsonify({'success': True})
 
 
-# ========== КАСТОМНЫЕ ПРАВИЛА ==========
+# КАСТОМНЫЕ ПРАВИЛА
 
 @app.route('/custom_rules')
 @login_required
@@ -229,7 +229,7 @@ def toggle_custom_rule_route(rule_id):
     return jsonify({'success': True})
 
 
-# ========== НАСТРОЙКИ ==========
+# НАСТРОЙКИ
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -312,7 +312,7 @@ def waf_check(waf_url, api_key):
     )
 
 
-# ========== БЛОКИРОВКИ IP ==========
+# БЛОКИРОВКИ IP
 
 @app.route('/blocked_ips')
 @login_required

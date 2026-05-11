@@ -155,7 +155,7 @@ def check_request(method, path, headers, query_string=None, body=None):
                     "location": "URL"
                 })
                 continue
-        # Проверка параметров запроса (query string)
+        # Проверка параметров запроса
         if target in ["query", "both"] and decoded_query:
             if pattern.search(decoded_query):
                 triggered_rules.append({

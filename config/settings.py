@@ -5,7 +5,7 @@ PROXY_HOST = "0.0.0.0"
 PROXY_PORT = 8080
 
 # Upstream сервер
-UPSTREAM_HOST = "httpbin.org"  # тестовый сервер
+UPSTREAM_HOST = "httpbin.org"
 UPSTREAM_PORT = 80
 UPSTREAM_SSL = False
 

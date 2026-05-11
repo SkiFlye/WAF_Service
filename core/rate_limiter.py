@@ -5,7 +5,6 @@ from threading import Lock
 
 class RateLimiter:
     """Rate limiter с скользящим окном"""
-
     def __init__(self, limit_per_minute=60):
         self.limit_per_minute = limit_per_minute
         self.requests = defaultdict(list)
@@ -41,11 +40,7 @@ class RateLimiter:
         return active_blocks
 
     def check_and_record(self, client_ip):
-        """
-        Проверить лимит и записать запрос
-        Returns:
-            tuple: (allowed, remaining_requests)
-        """
+        """Проверить лимит и записать запрос"""
         with self.lock:
             current_time = time.time()
             # Очищаем старые записи
