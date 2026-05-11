@@ -54,7 +54,7 @@ def init_rules():
             "id": 7,
             "name": "Path Traversal - Unix",
             "pattern": re.compile(r"(\.\./|\.\.\\)"),
-            "target": "url",
+            "target": "both",
             "severity": "high"
         },
         {
@@ -67,7 +67,7 @@ def init_rules():
         {
             "id": 9,
             "name": "Command Injection - Pipe and semicolon",
-            "pattern": re.compile(r"(\||;|\&\&|\$\(|`|\|&)"),
+            "pattern": re.compile(r"(;|\||\&\&|\$\(|`|\|&|\|&|&&)"),
             "target": "both",
             "severity": "critical"
         },
